@@ -1,0 +1,25 @@
+{
+  "name": "sderot-tree-planting-calculator",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sderot Tree Planting Targets Calculator — standalone app",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@arcgis/core": "4.34.6",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.64",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.3.4",
+    "typescript": "5.6.3",
+    "vite": "4.5.5"
+  }
+}

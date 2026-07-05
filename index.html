@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="google-site-verification" content="Gl928UcZRBt8t7njrpXivrsVrbVcc7sLybtCMZ6Dzlg" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./favicon.svg" />
+    <!-- Early-paint locale: set <html lang> before React mounts so the first
+         frame is correct. dir stays 'ltr' — RTL is applied per-component so
+         the overall layout (sidebar on the right) does not flip. -->
+    <script>
+      (function () {
+        try {
+          var s = localStorage.getItem('bdar.locale');
+          var n = (navigator.language || '').toLowerCase();
+          var l = (s === 'he' || s === 'en')
+            ? s
+            : ((n.indexOf('he') === 0 || n.indexOf('iw') === 0) ? 'he' : 'en');
+          document.documentElement.setAttribute('lang', l);
+          document.documentElement.setAttribute('dir', 'ltr');
+        } catch (e) {}
+      })();
+    </script>
+    <title>Sderot Tree Planting Targets Calculator</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

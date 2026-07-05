@@ -1,0 +1,340 @@
+/* ArcGIS SDK base styles (dark theme to match the original Astro theme). */
+@import url('https://js.arcgis.com/4.34/@arcgis/core/assets/esri/themes/dark/main.css');
+
+:root {
+  --bg: #2b2b2b;
+  --panel-bg: #313030;
+  --text: #eee;
+  --primary: #39a5ff;
+  --accent: #4fc3f7;
+  --border: #555;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', 'Avenir Next', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-header {
+  height: 50px;
+  flex: 0 0 50px;
+  background: #0b0b0b;
+  position: relative;
+}
+
+/* BDAR lab logo, pinned to the header's left edge. */
+.header-logo {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  height: 32px;
+}
+.header-logo img {
+  height: 28px;
+  width: auto;
+  display: block;
+}
+
+/* Site title centered on the header midline regardless of side chrome. */
+.app-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 20px;
+  white-space: nowrap;
+  max-width: 60vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+/* Instructions / About buttons, just left of the toggle. */
+.header-actions {
+  position: absolute;
+  right: 72px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 14px;
+}
+
+.header-link {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+}
+.header-link:hover { text-decoration: underline; }
+
+/* EN/HE toggle pinned to the far right. */
+.header-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.lang-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.9;
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ── Modal dialogs ─────────────────────────────────────────────────────── */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20000;
+}
+
+.dialog-window {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: min(720px, 92vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.dialog-close {
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dialog-close:hover { color: #fff; }
+
+.dialog-body {
+  padding: 14px 18px;
+  overflow-y: auto;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.dialog-body a { color: var(--primary); }
+
+.app-main {
+  flex: 1 1 auto;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-height: 0;
+  /* No margins/padding so the map flush-fills the area below the header. */
+  overflow: hidden;
+}
+
+/* ── Map ───────────────────────────────────────────────────────────────── */
+.map-panel {
+  flex: 1 1 auto;
+  position: relative;
+  /* Explicit height ensures the ArcGIS MapView container fills the flex
+     row vertically. Without this, line-height/baseline gaps on the
+     <main> can leave a thin strip below the map. */
+  height: 100%;
+  min-height: 0;
+}
+
+/* Inset the ArcGIS MapView container so it sits BETWEEN the layers panel
+   (300 px on the left) and the calculator sidebar (320 px on the right).
+   That way the ArcGIS attribution/credits strip at the bottom of the map
+   stays fully inside the visible map column instead of running underneath
+   the side panels. The overlays themselves are positioned against
+   .map-panel and remain in place. */
+.map-view {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 300px;
+  right: 320px;
+}
+
+/* Suppress the ArcGIS MapView's focus indicator — drawn as a 2 px
+   coloured ring on `.esri-view-surface:focus::after` via the CSS var
+   `--esri-view-outline`. Overriding the var (and the pseudo-element's
+   outline) removes the blue frame that appears after panning the map. */
+.map-view .esri-view,
+.map-view .esri-view-surface,
+.esri-view {
+  --esri-view-outline: none !important;
+}
+.map-view .esri-view-surface:focus::after,
+.esri-view-surface:focus::after {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.map-error {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(180, 30, 30, 0.9);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  z-index: 10;
+}
+
+/* Layers panel — flush against the LEFT edge, full height below the header
+   (the calculator sidebar overlays the right edge). */
+.map-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 300px;
+  z-index: 7;
+  border-right: 1px solid var(--border);
+}
+
+/* ── Calculator sidebar ────────────────────────────────────────────────── */
+.sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  /* Match the layers panel background (rgb(30,30,30) = #1e1e1e) for a
+     consistent look across both sidebars. */
+  background: rgb(30, 30, 30);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  z-index: 6;
+  color: var(--text);
+}
+
+/* Map tools (basemap / fullscreen) — pinned to the bottom-left corner of
+   the map area, raised by the height of the ArcGIS credits/attribution
+   strip (~22 px in the dark theme) so its bottom edge aligns with the
+   bottom of the zoom widget — which ArcGIS positions just above the
+   attribution. */
+.map-tools-overlay {
+  position: absolute;
+  bottom: 30px;
+  left: 312px;
+  z-index: 7;
+}
+
+/* The ArcGIS bottom-right UI corner (containing our zoom widget) is
+   positioned inside the .map-view, which is already inset away from the
+   calculator sidebar. No additional offset is needed. */
+
+/* Tablet / phone: hide the calculator sidebar, map-only view. */
+@media (max-width: 860px) {
+  .sidebar { display: none; }
+  .map-overlay { width: 220px; }
+  .map-tools-overlay { left: 232px; }
+  /* With the calculator sidebar hidden, the map extends to the right
+     edge. */
+  .map-view { left: 220px; right: 0; }
+}
+
+/* ── RTL (Hebrew) layout ───────────────────────────────────────────────────
+   Flip the whole sidebar arrangement so the calculator is on the LEFT and
+   the layers panel + map tools + zoom buttons are on the RIGHT. This keeps
+   the legend pop-out (which floats to the side of the layers panel) visible
+   on the outside of the screen rather than tucked into the middle. */
+
+.app-shell.rtl .sidebar {
+  right: auto;
+  left: 0;
+  border-left: none;
+  border-right: 1px solid var(--border);
+}
+
+.app-shell.rtl .map-overlay {
+  left: auto;
+  right: 0;
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+
+/* Mirror the map-view inset: calculator sits on the LEFT (320 px) and
+   the layers panel on the RIGHT (300 px). */
+.app-shell.rtl .map-view {
+  left: 320px;
+  right: 300px;
+}
+
+/* In Hebrew the layers panel is on the RIGHT and the calculator on the
+   LEFT, so the bottom-corner placements mirror: map tools sit just to
+   the LEFT of the layers panel (bottom-right of the map area), and zoom
+   sits just to the RIGHT of the calculator (bottom-left of the map area). */
+.app-shell.rtl .map-tools-overlay {
+  left: auto;
+  right: 312px;
+}
+
+/* In Hebrew the calculator sidebar is on the left, so move the
+   bottom-right corner of the ArcGIS UI (containing the zoom widget) to
+   the bottom-LEFT corner of the now-mirrored map view.
+   ArcGIS uses `flex-flow: row-reverse` and gives the inner component a
+   `margin-left: 10px`. In English that 10 px sits between the widget
+   and the centre of the map (widget flush right). To mirror that on
+   the left side, we both anchor the corner at left:0 AND swap the
+   component margin so the 10 px gap is on the right of the widget
+   (widget flush left). */
+.app-shell.rtl .esri-ui-bottom-right {
+  right: auto !important;
+  left: 0 !important;
+}
+.app-shell.rtl .esri-ui-bottom-right .esri-component {
+  margin-left: 0 !important;
+  margin-right: 10px !important;
+}
+
+@media (max-width: 860px) {
+  .app-shell.rtl .map-tools-overlay { right: 232px; left: auto; }
+  .app-shell.rtl .esri-ui-bottom-right { left: 0 !important; right: auto !important; }
+  .app-shell.rtl .map-view { right: 220px; left: 0; }
+}

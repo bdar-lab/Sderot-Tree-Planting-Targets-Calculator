@@ -1,0 +1,159 @@
+/* Custom layers panel — exact replica of the ExB Map Layers widget. */
+
+.map-layers {
+  background: rgb(30, 30, 30);
+  color: #e8e8e8;
+  font-size: 13px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative; /* anchor for the legend pop-out */
+}
+
+.map-layers-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.map-layers-list > li {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* One layer row: toggle + icon + name + legend button. */
+.map-layers-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  min-height: 40px;
+}
+
+/* Visibility checkbox — calcite square / check-square-f equivalents. */
+.map-layers-toggle {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tick {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.tick.off {
+  border: 1.5px solid #9aa0a6;
+  background: transparent;
+}
+.tick.on {
+  border: 1.5px solid #3a8ed0;
+  background: #3a8ed0;
+  position: relative;
+}
+/* checkmark — anchored at the box centre and rotated 45° so its visual
+   centre lands exactly on the box's geometric centre regardless of the
+   asymmetric "L" shape made by border-right + border-bottom. */
+.tick.on::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+  transform-origin: center;
+}
+
+/* Custom layer icon (SVG span or <img>). */
+.map-layers-icon {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+}
+.map-layers-icon svg,
+.map-layers-icon img {
+  width: 16px;
+  height: 16px;
+}
+.map-layers-icon img {
+  /* match the brightness/invert treatment used in the original */
+  filter: brightness(0) invert(0.85);
+}
+
+.map-layers-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Legend toggle button at the row's trailing edge. */
+.map-layers-legend-btn {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  color: #cfcfcf;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+}
+.map-layers-legend-btn:disabled {
+  color: #5a5a5a;
+  cursor: default;
+}
+
+/* Legend pop-out — floats to the RIGHT of the layers panel, not inside it. */
+.map-layers-legend-popout {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 6px;
+  width: 260px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: rgb(30, 30, 30);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.5);
+  z-index: 8;
+  padding: 8px 10px;
+}
+.map-layers-legend-popout .esri-legend,
+.map-layers-legend-popout .esri-legend__service {
+  background: transparent !important;
+  color: #ddd !important;
+  padding: 0 !important;
+}
+.map-layers-legend-popout .esri-legend__layer-caption,
+.map-layers-legend-popout .esri-legend__layer-cell--info {
+  color: #ccc !important;
+  font-size: 11px !important;
+}
+/* RTL: name aligns right; pop-out flips to the panel's left side. */
+.map-layers[dir='rtl'] .map-layers-name {
+  text-align: right;
+}
+.map-layers[dir='rtl'] .map-layers-legend-popout {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: 6px;
+}

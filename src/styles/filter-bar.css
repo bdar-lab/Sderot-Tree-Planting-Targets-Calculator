@@ -1,0 +1,164 @@
+/* Filter bar + slider popovers — ported from tree_potential_v2/style.scss. */
+
+.compact-filter-bar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 4px;
+  /* Match the sidebar background (#1e1e1e) so the filter bar blends in. */
+  background: rgb(30, 30, 30);
+  justify-content: center;
+}
+
+.compact-filter-icon {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  padding: 4px;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s;
+  color: #ccc;
+}
+.compact-filter-icon:hover { background: rgba(255, 255, 255, 0.15); }
+.compact-filter-icon.active {
+  background: rgba(0, 121, 193, 0.3);
+  border-color: #0079c1;
+  color: #4fc3f7;
+}
+.compact-filter-icon img,
+.compact-filter-icon svg {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+.compact-filter-icon img { filter: brightness(0) invert(0.8); }
+.compact-filter-icon.active img {
+  filter: brightness(0) invert(0.7) sepia(1) saturate(5) hue-rotate(180deg);
+}
+/* Unavailable filters — visible in the bar but non-clickable. Reduced
+   opacity signals inactivity; hover still shows the tooltip. */
+.compact-filter-icon.unavailable {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.compact-filter-icon.unavailable:hover {
+  background: transparent;
+}
+
+.compact-filter-tooltip {
+  position: fixed;
+  background: rgba(30, 30, 30, 0.95);
+  color: #eee;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10001;
+}
+
+.compact-filter-popover {
+  position: fixed;
+  background: rgba(50, 50, 50, 0.95);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  padding: 12px 14px;
+  min-width: 220px;
+  z-index: 10000;
+  color: #eee;
+  font-size: 12px;
+  cursor: default;
+}
+
+.compact-filter-popover-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.compact-filter-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compact-filter-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #555;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.compact-filter-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #0079c1;
+  cursor: pointer;
+}
+.compact-filter-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #0079c1;
+  cursor: pointer;
+  border: none;
+}
+
+.compact-filter-value {
+  min-width: 35px;
+  text-align: end;
+  font-size: 11px;
+  color: #aaa;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tick labels under a categorical slider. Each label is absolutely
+   positioned by inline style (`left: calc(...)`) so its CENTRE lines up
+   with the slider thumb at that position. `transform: translateX(-50%)`
+   shifts each label half its own width to the left so the calculated x
+   coordinate corresponds to the label's centre. */
+.compact-filter-tick-row {
+  position: relative;
+  height: 14px;
+  margin-top: 2px;
+  font-size: 9px;
+  color: #888;
+  font-variant-numeric: tabular-nums;
+}
+.compact-filter-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  line-height: 14px;
+}
+.compact-filter-tick.active {
+  color: #4fc3f7;
+  font-weight: 600;
+}
+
+.compact-filter-range-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.compact-filter-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}

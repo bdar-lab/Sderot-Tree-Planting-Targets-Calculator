@@ -1,0 +1,48 @@
+/* Basemap / fullscreen toggle buttons — styled to match the ArcGIS zoom
+   widget: a stack of two square buttons, near-black background, straight
+   corners, thin separator between buttons, subtle shadow. */
+
+.map-tools-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Exact ESRI dark-theme button values, read from
+   @arcgis/core/assets/esri/themes/dark/main.css
+   (.esri-widget--button + .esri-zoom .esri-widget--button:last-child). */
+.map-tool-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  background: #242424;
+  padding: 0;
+  color: #adadad;
+  transition: background-color 0.125s ease-in-out, color 0.125s ease-in-out;
+}
+/* Separator between the stacked buttons, matching the zoom widget's
+   `border-top: 1px solid #adadad4d` between its two buttons. */
+.map-tool-btn + .map-tool-btn {
+  border-top: 1px solid #adadad4d;
+}
+.map-tool-btn:hover {
+  background: #303030;
+  color: #ededed;
+}
+.map-tool-btn.active {
+  background: #303030;
+  color: #4fc3f7;
+}
+.map-tool-btn span {
+  display: flex;
+  width: 18px;
+  height: 18px;
+}
+.map-tool-btn svg {
+  width: 18px;
+  height: 18px;
+}
