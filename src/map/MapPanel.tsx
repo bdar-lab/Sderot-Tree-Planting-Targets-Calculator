@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useWebMap, findLayerByTitle, type WebMapHandle } from './useWebMap'
-import { SELECTED_LAYER_TITLE, FILTER_LAYER_MAPPINGS, FILTERABLE_LAYER_TITLES } from './layers'
+import { SELECTED_LAYER_TITLE, FILTER_LAYER_MAPPINGS, FILTERABLE_LAYER_TITLES, TREES_LAYER_TITLE } from './layers'
 import { useLocale } from '../i18n/locale'
 import { LAYER_TITLES } from '../i18n/strings'
 import MapLayers from './MapLayers'
@@ -39,6 +39,12 @@ export default function MapPanel ({ onReady }: Props) {
       const layer = findLayerByTitle(webmap, m.layerTitle)
       if (layer) layer.visible = false
     }
+    const KEEP_VISIBLE = new Set<string>([SELECTED_LAYER_TITLE, TREES_LAYER_TITLE])
+    webmap.allLayers.forEach((layer: any) => {
+      if (!layer || layer.type !== 'feature') return
+      const canonical = (layer.__canonicalTitle as string) || layer.title || ''
+      if (!KEEP_VISIBLE.has(canonical)) layer.visible = false
+    })
     initDone.current = true
     onReady(handle)
   }, [handle, onReady])
