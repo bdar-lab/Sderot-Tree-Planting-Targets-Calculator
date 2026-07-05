@@ -22,24 +22,33 @@ export default function MapPanel ({ onReady }: Props) {
   const locale = useLocale()
   const initDone = useRef(false)
 
-  // On first ready: eagerly stash __canonicalTitle on all layers we care
-  // about and ensure the "selected streets" layer (in Sderot: the SDR
-  // street shade-index layer) is visible. Sderot's shade-index layer ships
-  // with its own gradient renderer, so we don't overwrite it here.
+  // On first ready: apply the grey renderer to "Selected streets", move it
+  // to the bottom of the stack so the shade-index gradient stays visible
+  // on top, then hide any layers we don't want on the map.
   useEffect(() => {
     if (!handle.ready || !handle.webmap || initDone.current) return
     const webmap = handle.webmap
     for (const title of FILTERABLE_LAYER_TITLES) findLayerByTitle(webmap, title)
     const selected = findLayerByTitle(webmap, SELECTED_LAYER_TITLE)
-    if (selected) selected.visible = true
-    // FILTER_LAYER_MAPPINGS may reference the same layer as SELECTED_LAYER_TITLE
-    // (Sderot: yes). Don't hide layers that are also the selected one.
-    for (const m of FILTER_LAYER_MAPPINGS) {
-      if (m.layerTitle === SELECTED_LAYER_TITLE) continue
-      const layer = findLayerByTitle(webmap, m.layerTitle)
-      if (layer) layer.visible = false
+    if (selected) {
+      selected.opacity = 1.0
+      ;(selected as any).renderer = {
+        type: 'simple',
+        symbol: {
+          type: 'simple-fill',
+          color: [151, 151, 151, 1],
+          outline: { color: [80, 80, 80, 1], width: 0.5 }
+        }
+      }
+      webmap.layers.remove(selected as any)
+      webmap.layers.add(selected as any, 0)
+      selected.visible = true
     }
-    const KEEP_VISIBLE = new Set<string>([SELECTED_LAYER_TITLE, TREES_LAYER_TITLE])
+    const KEEP_VISIBLE = new Set<string>([
+      SELECTED_LAYER_TITLE,
+      'Spring/summer Shade Index',
+      TREES_LAYER_TITLE
+    ])
     webmap.allLayers.forEach((layer: any) => {
       if (!layer || layer.type !== 'feature') return
       const canonical = (layer.__canonicalTitle as string) || layer.title || ''

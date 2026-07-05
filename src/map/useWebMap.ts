@@ -8,7 +8,7 @@ import type FeatureLayer from '@arcgis/core/layers/FeatureLayer'
 // Replaces ExB's JimuMapViewComponent / DataSourceManager wiring.
 // ─────────────────────────────────────────────────────────────────────────
 
-export const WEBMAP_ITEM_ID = '17f589c1697044828c15af828df0dd27'
+export const WEBMAP_ITEM_ID = 'bc5b9f6ef21a44218b8201353f1a8524'
 export const PORTAL_URL = 'https://technion-gis.maps.arcgis.com'
 
 export interface WebMapHandle {
