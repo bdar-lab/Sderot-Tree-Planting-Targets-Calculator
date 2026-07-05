@@ -333,15 +333,15 @@ export const CATEGORY_LABELS: Record<Locale, Record<string, string>> = {
 export const LAYER_TITLES: Record<Locale, Record<string, string>> = {
   en: {
     'Selected streets': 'Selected streets',
-    'Spring/summer Shade Index': 'Spring/summer Shade Index',
-    'Tree canopies 2025': 'Tree canopies',
-    'Existing street tree locations 2025': 'Existing trees'
+    'Spring/summer Shade Index': 'Spring/Summer Shade Index',
+    'Tree canopies 2025': 'Tree canopies 2025',
+    'Existing street tree locations 2025': 'Existing street trees 2025'
   },
   he: {
     'Selected streets': 'רחובות נבחרים',
-    'Spring/summer Shade Index': 'מדד הצללה (אביב/קיץ)',
-    'Tree canopies 2025': 'חופות עצים',
-    'Existing street tree locations 2025': 'עצים קיימים'
+    'Spring/summer Shade Index': 'מדד ההצללה באביב/בקיץ',
+    'Tree canopies 2025': 'חופות עצים 2025',
+    'Existing street tree locations 2025': 'עצי רחוב קיימים 2025'
   }
 }
 

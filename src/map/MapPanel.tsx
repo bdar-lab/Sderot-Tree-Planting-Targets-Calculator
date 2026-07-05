@@ -44,15 +44,37 @@ export default function MapPanel ({ onReady }: Props) {
       webmap.layers.add(selected as any, 0)
       selected.visible = true
     }
-    const KEEP_VISIBLE = new Set<string>([
-      SELECTED_LAYER_TITLE,
-      'Spring/summer Shade Index',
-      TREES_LAYER_TITLE
-    ])
+    const trees = findLayerByTitle(webmap, TREES_LAYER_TITLE)
+    if (trees) {
+      ;(trees as any).renderer = {
+        type: 'simple',
+        symbol: {
+          type: 'simple-marker',
+          style: 'circle',
+          color: [76, 175, 80, 0.65],
+          outline: { color: [46, 125, 50, 1], width: 0.5 }
+        },
+        visualVariables: [
+          {
+            type: 'size',
+            field: 'crown_diam',
+            valueUnit: 'meters'
+          },
+          {
+            type: 'color',
+            field: 'crown_diam',
+            stops: [
+              { value: 3.999, color: [229, 57, 53, 0.7] },
+              { value: 4, color: [76, 175, 80, 0.7] }
+            ]
+          }
+        ]
+      }
+    }
     webmap.allLayers.forEach((layer: any) => {
       if (!layer || layer.type !== 'feature') return
       const canonical = (layer.__canonicalTitle as string) || layer.title || ''
-      if (!KEEP_VISIBLE.has(canonical)) layer.visible = false
+      layer.visible = canonical === SELECTED_LAYER_TITLE
     })
     initDone.current = true
     onReady(handle)
