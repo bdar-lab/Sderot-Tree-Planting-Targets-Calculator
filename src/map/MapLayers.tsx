@@ -3,8 +3,10 @@ import type WebMap from '@arcgis/core/WebMap'
 import type MapView from '@arcgis/core/views/MapView'
 import Legend from '@arcgis/core/widgets/Legend'
 import { FILTER_DEFINITIONS } from '../calculator/filter-definitions'
-import { FILTER_LAYER_MAPPINGS } from './layers'
+import { FILTER_LAYER_MAPPINGS, SELECTED_LAYER_TITLE, TREES_LAYER_TITLE } from './layers'
 import { STANDALONE_LAYER_ICONS } from './layer-icons'
+
+const PANEL_LAYER_TITLES = new Set<string>([SELECTED_LAYER_TITLE, TREES_LAYER_TITLE])
 import { LAYER_TITLES } from '../i18n/strings'
 import { type Locale } from '../i18n/locale'
 import '../styles/map-layers.css'
@@ -67,6 +69,7 @@ export default function MapLayers ({ webmap, view, locale }: Props) {
       for (const layer of layers as any[]) {
         if (layer.type !== 'feature') continue
         const canonical = (layer.__canonicalTitle as string) || layer.title || ''
+        if (!PANEL_LAYER_TITLES.has(canonical)) continue
         const display = LAYER_TITLES[locale][canonical] || layer.title || canonical
         out.push({
           id: layer.id,
