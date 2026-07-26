@@ -5,8 +5,27 @@
 // mutates. "Spring/summer Shade Index" is the always-on visualization.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** The layer whose definitionExpression reflects the combined filter. */
+/** The layer that always shows every street polygon in grey. It is the
+ *  "canvas" the user clicks on. Its definitionExpression is NEVER mutated
+ *  by the app — filters and clicks both feed the highlight overlay below. */
 export const SELECTED_LAYER_TITLE = 'Selected streets'
+
+/** In-code overlay layer, cloned from the same feature service as
+ *  SELECTED_LAYER_TITLE. Its definitionExpression is the union of the
+ *  filter clauses and the manually-clicked OIDs, and its renderer paints
+ *  matched features light-blue on top of the grey base. Everything
+ *  downstream (calculator query, live count, PDF) reads from this layer. */
+export const SELECTION_HIGHLIGHT_LAYER_TITLE = 'Selected streets (highlight)'
+
+/** Light-blue semi-transparent renderer for the highlight overlay. */
+export const SELECTION_HIGHLIGHT_RENDERER = {
+  type: 'simple',
+  symbol: {
+    type: 'simple-fill',
+    color: [100, 181, 246, 0.55],
+    outline: { color: [21, 101, 192, 1], width: 0.8 }
+  }
+} as const
 
 /** Filter field → visualization layer (canonical English titles). Only the
  *  Shade Index has a corresponding filter/visualization pairing. Street

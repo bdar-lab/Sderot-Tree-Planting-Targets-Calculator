@@ -45,10 +45,11 @@ export function translateFilters (sql: string, locale: Locale): string[] {
       .replace(/=\s*/g, `: ${eq} `)
     const isDistanceField = distanceDescs.some(d => d && text.includes(d))
     if (isDistanceField) {
+      const mUnit = t(locale, 'unitMeter')
       if (text.includes(` ${between} `)) {
-        text = text.replace(/(\d+(?:\.\d+)?)\s+\S+\s+(\d+(?:\.\d+)?)/, (_m, a, b) => `${a}m ${andWord} ${b}m`)
+        text = text.replace(/(\d+(?:\.\d+)?)\s+\S+\s+(\d+(?:\.\d+)?)/, (_m, a, b) => `${a} ${mUnit} ${andWord} ${b} ${mUnit}`)
       } else {
-        text = text.replace(/(\d+(\.\d+)?)$/, '$1m')
+        text = text.replace(/(\d+(\.\d+)?)$/, `$1 ${mUnit}`)
       }
     }
     let bullet = text.charAt(0).toUpperCase() + text.slice(1)
@@ -104,7 +105,8 @@ export function openPdfReport (
   const methodDesc = scenario === 's1'
     ? (subScenario === '1a' ? t(locale, 'pdfMethod1Global') : t(locale, 'pdfMethod1ByWidth'))
     : t(locale, 'pdfMethod2')
-  const paramSummary = `${t(locale, 'crownDiameter')}: ${diameter}m | ${scenario === 's1' ? (subScenario === '1a' ? `${t(locale, 'globalTccr')}: ${tccrGlobal}` : t(locale, 'pdfTargetsPerWidth')) : `${t(locale, 'desiredSpacing')}: ${spacing}m`}`
+  const mUnit = t(locale, 'unitMeter')
+  const paramSummary = `${t(locale, 'crownDiameter')}: ${diameter} ${mUnit} | ${scenario === 's1' ? (subScenario === '1a' ? `${t(locale, 'globalTccr')}: ${tccrGlobal}` : t(locale, 'pdfTargetsPerWidth')) : `${t(locale, 'desiredSpacing')}: ${spacing} ${mUnit}`}`
   const dirAttr = locale === 'he' ? 'rtl' : 'ltr'
   const langAttr = locale === 'he' ? 'he' : 'en'
   const align = locale === 'he' ? 'right' : 'left'
@@ -112,7 +114,7 @@ export function openPdfReport (
   printWindow.document.write(`<html lang="${langAttr}" dir="${dirAttr}"><head><title>${t(locale, 'pdfTitle')}</title><style>body{font-family:'Segoe UI',Arial,sans-serif;padding:25px;color:#333;font-size:10px;line-height:1.3}h1{color:#2c3e50;font-size:16px;margin:0 0 15px 0}h2{font-size:12px;border-bottom:1px solid #eee;padding-bottom:3px;margin:15px 0 8px 0}.section-title{font-weight:bold;margin-bottom:3px;font-size:11px}table{width:100%;border-collapse:collapse;margin-top:5px;font-size:9px}th,td{border:1px solid #ddd;padding:4px 6px;text-align:${align}}th{background-color:#f8f9fa}.map-container{margin:12px 0;border:1px solid #ccc;width:100%}.map-img{width:100%;height:auto;display:block;max-height:400px;object-fit:contain;background:#eee}.footer{margin-top:25px;padding-top:8px;border-top:1px solid #eee;text-align:center;color:#777;font-size:8px}ul{padding-${align}:15px;margin:3px 0}li{margin-bottom:1px}</style></head><body>
       <h1>${t(locale, 'pdfTitle')}</h1>
       <div class="section-title">${t(locale, 'pdfAppliedAssumptions')}</div><ul>${results.filterSummary.map(f => `<li>${f}</li>`).join('')}</ul>
-      <p style="margin:5px 0;"><strong>${t(locale, 'pdfTotalSegments')}:</strong> ${fmtInt(results.segmentCount)} | <strong>${t(locale, 'pdfTotalLength')}:</strong> ${fmtInt(results.totalLength)} m</p>
+      <p style="margin:5px 0;"><strong>${t(locale, 'pdfTotalSegments')}:</strong> ${fmtInt(results.segmentCount)} | <strong>${t(locale, 'pdfTotalLength')}:</strong> ${fmtInt(results.totalLength)} ${t(locale, 'unitMeter')}</p>
       <div class="section-title">${t(locale, 'pdfChosenMethod')}</div><p style="margin:2px 0;">${methodDesc}<br/><span style="color:#666;">${t(locale, 'pdfParameters')}: ${paramSummary}</span></p>
       <div class="map-container"><img class="map-img" src="${screenshotDataUrl}"></div>
       <h2>${t(locale, 'pdfResultsSummary')}</h2><table><tr><th>${t(locale, 'pdfMetric')}</th><th>${t(locale, 'pdfValue')}</th></tr>
@@ -121,8 +123,8 @@ export function openPdfReport (
       <tr><td>${t(locale, 'pdfExistingUnder')}</td><td>${fmtInt(results.totalExistingUnder)}</td></tr>
       <tr style="font-weight:bold;"><td>${t(locale, 'pdfNewTrees')}</td><td>${fmtInt(results.treesToAdd)}</td></tr>
       <tr><td>${t(locale, 'pdfAvgTccr')}</td><td>${formatNum(results.avgTccr)}</td></tr>
-      <tr><td>${t(locale, 'pdfAvgSpacing')}</td><td>${fmtInt(results.avgSpacing)} m</td></tr></table>
-      <h2>${t(locale, 'pdfResultsByWidth')}</h2><table><tr><th>${t(locale, 'pdfWidth')}</th><th>${t(locale, 'pdfTreesToAdd')}</th><th>${t(locale, 'tccrLabel')}</th><th>${t(locale, 'spacingLabel')} (m)</th><th>${t(locale, 'lengthLabel')} (m)</th></tr>
+      <tr><td>${t(locale, 'pdfAvgSpacing')}</td><td>${fmtInt(results.avgSpacing)} ${t(locale, 'unitMeter')}</td></tr></table>
+      <h2>${t(locale, 'pdfResultsByWidth')}</h2><table><tr><th>${t(locale, 'pdfWidth')}</th><th>${t(locale, 'pdfTreesToAdd')}</th><th>${t(locale, 'tccrLabel')}</th><th>${t(locale, 'spacingLabel')} (${t(locale, 'unitMeter')})</th><th>${t(locale, 'lengthLabel')} (${t(locale, 'unitMeter')})</th></tr>
       ${Object.keys(results.byWtype).sort().map(k => { const g = results.byWtype[k]; return `<tr><td>${categoryLabels[k] || k}</td><td>${fmtInt(g.treesToAdd)}</td><td>${formatNum(g.tccr)}</td><td>${fmtInt(g.spacing)}</td><td>${fmtInt(g.length)}</td></tr>` }).join('')}</table>
       <div class="footer">${t(locale, 'pdfFooter')} | ${new Date().toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-GB')}</div></body></html>`)
   printWindow.document.close()

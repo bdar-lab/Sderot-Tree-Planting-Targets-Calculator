@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { findLayerByTitle, type WebMapHandle } from '../map/useWebMap'
 import {
-  SELECTED_LAYER_TITLE, FILTER_LAYER_MAPPINGS, KNOWN_FILTER_FIELDS
+  SELECTION_HIGHLIGHT_LAYER_TITLE,
+  FILTER_LAYER_MAPPINGS,
+  KNOWN_FILTER_FIELDS
 } from '../map/layers'
 import { FILTER_DEFINITIONS } from './filter-definitions'
 import {
@@ -14,49 +16,97 @@ import Calculator from './Calculator'
 
 // ─────────────────────────────────────────────────────────────────────────
 // The unified sidebar: filter bar on top, calculator below. Owns the filter
-// state, pushes the combined SQL to all visualization layers + "Selected
-// streets", and polls the live segment count.
-// Replaces the ExB tree_potential_v2 widget's main component + filter-layer-
-// sync's SQL→layer sync.
+// state, computes the UNION of filter clauses and manually-clicked OIDs,
+// pushes that union into the highlight overlay's definitionExpression, and
+// polls the live segment count.
+//
+// The grey "Selected streets" base layer keeps all polygons visible so the
+// user always sees where they can click; the highlight overlay carries the
+// blue selection paint driven by the union clause.
 // ─────────────────────────────────────────────────────────────────────────
 
 interface Props {
   locale: Locale
   map: WebMapHandle
+  /** OID field name for the street-segment feature service, discovered in
+   *  MapPanel. Null until the layer's metadata has loaded — when null, the
+   *  click set can't be turned into SQL and we fall back to filter-only. */
+  oidField: string | null
+  /** Manually-clicked street OIDs. Owned by App so both this sidebar and
+   *  MapPanel's click handler see the same source of truth. */
+  manualIds: Set<number>
+  /** Clears every manually-clicked OID; filters are NOT touched. */
+  onClearSelection: () => void
+  /** Queries every street OID and adds them all to the selection at once. */
+  onSelectAll: () => void
 }
 
-export default function Sidebar ({ locale, map }: Props) {
+export default function Sidebar ({
+  locale, map, oidField, manualIds, onClearSelection, onSelectAll
+}: Props) {
   const [filters, setFilters] = useState<FiltersMap>(createInitialFilters)
   const [segmentCountText, setSegmentCountText] = useState('')
   const [loading, setLoading] = useState(false)
   const prevSqlRef = useRef<string>('')
-  const expectedSqlRef = useRef<string>('1=1')
+  const expectedSqlRef = useRef<string>('1=0')
 
-  // Apply the combined filter SQL to every visualization layer + Selected
-  // streets whenever the filters change.
+  // Push the UNION of filter clauses + manually-clicked OIDs into the
+  // highlight overlay's definitionExpression. Filter layers (e.g. the
+  // Shade Index visualization) still get the raw filter SQL so their
+  // gradient narrows to the filtered subset — that layer is separate from
+  // the selection concept.
   useEffect(() => {
     if (!map.ready || !map.webmap) return
-    const sql = buildCombinedSql(filters)
-    if (sql === prevSqlRef.current) return
-    prevSqlRef.current = sql
-    // Keep only clauses for known fields (incl. `width`).
-    const clauses = [...parseFilterClauses(sql, KNOWN_FILTER_FIELDS).values()]
-    const combined = clauses.length > 0 ? clauses.join(' AND ') : '1=1'
+    const rawFilterSql = buildCombinedSql(filters)
+    const clauses = [...parseFilterClauses(rawFilterSql, KNOWN_FILTER_FIELDS).values()]
+    const filterSql = clauses.length > 0 ? clauses.join(' AND ') : '1=1'
+
+    // Build the click clause. Skip it if OID discovery hasn't finished yet
+    // OR the set is empty — either way, filter alone drives the selection.
+    const clicksSql = (oidField && manualIds.size > 0)
+      ? `${oidField} IN (${[...manualIds].join(',')})`
+      : null
+
+    // Union rules:
+    //   - both empty              → '1=0' (highlight overlay shows nothing)
+    //   - filter only             → filterSql
+    //   - clicks only             → clicksSql
+    //   - both present            → (filterSql) OR clicksSql
+    //   Note: filter '1=1' means "no active sliders". In that case we
+    //   want the OVERLAY to also be empty until the user actually picks
+    //   something — otherwise the entire map would flash blue on load.
+    let combined: string
+    if (filterSql === '1=1' && !clicksSql) combined = '1=0'
+    else if (filterSql === '1=1' && clicksSql) combined = clicksSql
+    else if (!clicksSql) combined = filterSql
+    else combined = `(${filterSql}) OR ${clicksSql}`
+
+    if (combined === prevSqlRef.current) return
+    prevSqlRef.current = combined
     expectedSqlRef.current = combined
+
+    // Filter visualization layers (e.g. the Shade Index gradient) get the
+    // full union too — the gradient should reveal exactly the same street
+    // set that's painted blue on the highlight overlay, so manual clicks
+    // outside the filter still show their shade colour.
     for (const m of FILTER_LAYER_MAPPINGS) {
       const layer = findLayerByTitle(map.webmap, m.layerTitle)
       if (layer) layer.definitionExpression = combined
     }
-    const selected = findLayerByTitle(map.webmap, SELECTED_LAYER_TITLE)
-    if (selected) selected.definitionExpression = combined
-  }, [filters, map.ready, map.webmap])
+    // The highlight overlay gets the same union.
+    const highlight = findLayerByTitle(map.webmap, SELECTION_HIGHLIGHT_LAYER_TITLE)
+    if (highlight) highlight.definitionExpression = combined
+  }, [filters, manualIds, oidField, map.ready, map.webmap])
 
-  // Guard layers against external definitionExpression resets (e.g. popups),
-  // mirroring the ExB filter-layer-sync layer.watch guard.
+  // Guard the highlight layer (and filter viz layers) against external
+  // definitionExpression resets (e.g. popup interactions).
   useEffect(() => {
     if (!map.ready || !map.webmap) return
     const handles: IHandle[] = []
-    const titles = [...FILTER_LAYER_MAPPINGS.map(m => m.layerTitle), SELECTED_LAYER_TITLE]
+    const titles = [
+      ...FILTER_LAYER_MAPPINGS.map(m => m.layerTitle),
+      SELECTION_HIGHLIGHT_LAYER_TITLE
+    ]
     for (const title of titles) {
       const layer = findLayerByTitle(map.webmap, title)
       if (!layer) continue
@@ -70,18 +120,19 @@ export default function Sidebar ({ locale, map }: Props) {
     return () => handles.forEach(h => h.remove())
   }, [map.ready, map.webmap])
 
-  // Poll the live count of selected segments.
+  // Poll the live count of selected segments. Reads from the highlight
+  // overlay so it reflects the same union the user sees painted blue.
   useEffect(() => {
     if (!map.ready || !map.webmap) return
-    const selected = findLayerByTitle(map.webmap, SELECTED_LAYER_TITLE)
-    if (!selected) return
+    const highlight = findLayerByTitle(map.webmap, SELECTION_HIGHLIGHT_LAYER_TITLE)
+    if (!highlight) return
     let cancelled = false
     const update = async () => {
       if (loading) return
       try {
-        const q = selected.createQuery()
-        q.where = selected.definitionExpression || '1=1'
-        const count = await selected.queryFeatureCount(q)
+        const q = highlight.createQuery()
+        q.where = highlight.definitionExpression || '1=0'
+        const count = await highlight.queryFeatureCount(q)
         if (!cancelled && !loading) {
           setSegmentCountText(t(locale, 'streetSegmentsSelected', { n: count.toLocaleString() }))
         }
@@ -109,8 +160,10 @@ export default function Sidebar ({ locale, map }: Props) {
 
   const handleReset = useCallback(() => setFilters(createInitialFilters()), [])
 
+  // Calculator + count polling both read from the highlight overlay, which
+  // carries the union clause. The grey base is left untouched.
   const selectedLayer = map.webmap
-    ? findLayerByTitle(map.webmap, SELECTED_LAYER_TITLE)
+    ? findLayerByTitle(map.webmap, SELECTION_HIGHLIGHT_LAYER_TITLE)
     : null
 
   return (
@@ -121,6 +174,10 @@ export default function Sidebar ({ locale, map }: Props) {
         onUpdateValue={handleUpdateValue}
         onToggle={handleToggle}
         onReset={handleReset}
+        onClearSelection={onClearSelection}
+        clearSelectionEnabled={manualIds.size > 0}
+        onSelectAll={onSelectAll}
+        selectAllEnabled={!!oidField}
       />
       <Calculator
         locale={locale}

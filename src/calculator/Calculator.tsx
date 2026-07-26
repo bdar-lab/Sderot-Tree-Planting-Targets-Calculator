@@ -302,7 +302,7 @@ export default function Calculator ({
         <div style={{ padding: 10, border: '1px solid #555', borderRadius: 4, background: '#333' }}>
           <div style={{ fontWeight: 'bold', borderBottom: '1px solid #555', marginBottom: 6, paddingBottom: 4, textTransform: 'uppercase', fontSize: 11 }}>{t(locale, 'results')}</div>
           <Row label={t(locale, 'selectedSegments')} value={fmtInt(results.segmentCount)} />
-          <Row label={t(locale, 'totalStreetLength')} value={`${fmtInt(results.totalLength)} m`} />
+          <Row label={t(locale, 'totalStreetLength')} value={`${fmtInt(results.totalLength)} ${t(locale, 'unitMeter')}`} />
           <Row label={t(locale, 'idealTrees')} value={fmtInt(results.totalTrees)} mt />
           <Row label={t(locale, 'existingShadeTrees')} value={fmtInt(results.totalExistingShade)} />
           <Row label={t(locale, 'underdevelopedTrees')} value={fmtInt(results.totalExistingUnder)} />
@@ -311,7 +311,7 @@ export default function Calculator ({
           </div>
           <Row label={t(locale, 'weightedTccr')} value={formatNum(results.avgTccr)} />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 8 }}>
-            <span>{t(locale, 'avgSpacing')}</span><strong>{fmtInt(results.avgSpacing)} m</strong>
+            <span>{t(locale, 'avgSpacing')}</span><strong>{fmtInt(results.avgSpacing)} {t(locale, 'unitMeter')}</strong>
           </div>
           <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
             <button onClick={handleCsv} style={resultBtn}>{t(locale, 'exportCsv')}</button>
@@ -327,7 +327,7 @@ export default function Calculator ({
                   <span>{t(locale, 'tccrLabel')}: {formatNum(results.byWtype[k].tccr)}</span>
                 </div>
                 <div style={{ color: '#888', fontSize: 10 }}>
-                  {t(locale, 'spacingLabel')}: {fmtInt(results.byWtype[k].spacing)} m | {t(locale, 'lengthLabel')}: {fmtInt(results.byWtype[k].length)} m
+                  {t(locale, 'spacingLabel')}: {fmtInt(results.byWtype[k].spacing)} {t(locale, 'unitMeter')} | {t(locale, 'lengthLabel')}: {fmtInt(results.byWtype[k].length)} {t(locale, 'unitMeter')}
                 </div>
               </div>
             ))}

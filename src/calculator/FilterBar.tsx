@@ -6,6 +6,16 @@ import { t } from '../i18n/strings'
 import { type Locale } from '../i18n/locale'
 import '../styles/filter-bar.css'
 
+// Display-unit helper: `def.unit` in the filter definitions is stored as
+// the plain English abbreviation ("m"). At render time we swap it for the
+// locale-appropriate form (Hebrew "מ'") and prepend a space so it reads
+// as "300 m" / "300 מ׳" consistently with the results panel and PDF.
+function displayUnit (unit: string | undefined, locale: Locale): string {
+  if (!unit) return ''
+  if (unit === 'm') return ` ${t(locale, 'unitMeter')}`
+  return ` ${unit}`
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Icon-based filter bar with live-updating slider popovers.
 // Ported from tree_potential_v2/widget.tsx (FilterIconImg, SliderContent,
@@ -107,7 +117,7 @@ function SliderContent ({ def, value, onChange, locale }: {
           <span className="compact-filter-value" style={{ minWidth: 30 }}>{t(locale, 'high')}</span>
         </div>
         <div style={{ fontSize: 10, color: '#888', marginTop: 4 }}>
-          {def.operator === '<' ? t(locale, 'lessThan') : t(locale, 'greaterThan')} {displayVal}{def.unit || ''}
+          {def.operator === '<' ? t(locale, 'lessThan') : t(locale, 'greaterThan')} {displayVal}{displayUnit(def.unit, locale)}
         </div>
         <div style={{ fontSize: 9, color: '#666', marginTop: 2 }}>
           {t(locale, 'jenksClass', { n: closestIdx + 1, m: breaks.length })}
@@ -123,10 +133,10 @@ function SliderContent ({ def, value, onChange, locale }: {
         <input type="range" className="compact-filter-slider"
           min={def.min} max={def.max} step={def.step} value={value}
           onChange={e => onChange(Number(e.target.value))} />
-        <span className="compact-filter-value">{displayVal}{def.unit || ''}</span>
+        <span className="compact-filter-value">{displayVal}{displayUnit(def.unit, locale)}</span>
       </div>
       <div style={{ fontSize: 10, color: '#888', marginTop: 4 }}>
-        {def.operator === '<' ? t(locale, 'lessThan') : t(locale, 'greaterThan')} {displayVal}{def.unit || ''}
+        {def.operator === '<' ? t(locale, 'lessThan') : t(locale, 'greaterThan')} {displayVal}{displayUnit(def.unit, locale)}
       </div>
     </div>
   )
@@ -139,9 +149,9 @@ function RangeSliderContent ({ def, value, onChange, locale }: {
   return (
     <div>
       <div className="compact-filter-range-row">
-        <span className="compact-filter-value">{lo}{def.unit || ''}</span>
+        <span className="compact-filter-value">{lo}{displayUnit(def.unit, locale)}</span>
         <span style={{ color: '#888' }}>-</span>
-        <span className="compact-filter-value">{hi}{def.unit || ''}</span>
+        <span className="compact-filter-value">{hi}{displayUnit(def.unit, locale)}</span>
       </div>
       <div style={{ marginBottom: 4 }}>
         <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>{t(locale, 'min')}</div>
@@ -165,9 +175,17 @@ interface Props {
   onUpdateValue: (field: string, value: number | [number, number]) => void
   onToggle: (field: string) => void
   onReset: () => void
+  onClearSelection: () => void
+  clearSelectionEnabled: boolean
+  onSelectAll: () => void
+  selectAllEnabled: boolean
 }
 
-export default function FilterBar ({ filters, locale, onUpdateValue, onToggle, onReset }: Props) {
+export default function FilterBar ({
+  filters, locale, onUpdateValue, onToggle, onReset,
+  onClearSelection, clearSelectionEnabled,
+  onSelectAll, selectAllEnabled
+}: Props) {
   const [openPopover, setOpenPopover] = useState<string | null>(null)
   const [hoveredIcon, setHoveredIcon] = useState<string | null>(null)
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null)
@@ -267,10 +285,41 @@ export default function FilterBar ({ filters, locale, onUpdateValue, onToggle, o
           )
         })}
       </div>
-      <div style={{ textAlign: 'center', padding: '4px 10px 0' }}>
+      <div style={{ textAlign: 'center', padding: '4px 10px 0', display: 'flex', gap: 6, justifyContent: 'center' }}>
         <button onClick={onReset}
           style={{ fontSize: 10, color: '#aaa', background: 'none', border: '1px solid #555', borderRadius: 3, padding: '2px 10px', cursor: 'pointer' }}>
           {t(locale, 'resetFilters')}
+        </button>
+        <button
+          onClick={onClearSelection}
+          disabled={!clearSelectionEnabled}
+          title={t(locale, 'clearSelectionTooltip')}
+          style={{
+            fontSize: 10,
+            color: clearSelectionEnabled ? '#aaa' : '#555',
+            background: 'none',
+            border: `1px solid ${clearSelectionEnabled ? '#555' : '#333'}`,
+            borderRadius: 3,
+            padding: '2px 10px',
+            cursor: clearSelectionEnabled ? 'pointer' : 'not-allowed'
+          }}
+        >
+          {t(locale, 'clearSelection')}
+        </button>
+        <button
+          onClick={onSelectAll}
+          disabled={!selectAllEnabled}
+          style={{
+            fontSize: 10,
+            color: selectAllEnabled ? '#aaa' : '#555',
+            background: 'none',
+            border: `1px solid ${selectAllEnabled ? '#555' : '#333'}`,
+            borderRadius: 3,
+            padding: '2px 10px',
+            cursor: selectAllEnabled ? 'pointer' : 'not-allowed'
+          }}
+        >
+          {t(locale, 'selectAll')}
         </button>
       </div>
       {createPortal(portalContent, document.body)}

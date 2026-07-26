@@ -41,7 +41,13 @@ export function useWebMap (containerRef: React.RefObject<HTMLDivElement>): WebMa
     })
     const view = new MapView({
       container: containerRef.current,
-      map: webmap
+      map: webmap,
+      // Click-to-select owns the click gesture; the default popup would
+      // steal it (and also visually cover the map with an attribute card
+      // the user can't do anything useful with). Disable it at construction
+      // time so no popup ever opens.
+      popupEnabled: false,
+      popup: { autoOpenEnabled: false, dockEnabled: false } as any
     })
     // Move the default zoom in/out widget to the bottom-right corner of
     // the map area (just inside the calculator sidebar). The map-tools

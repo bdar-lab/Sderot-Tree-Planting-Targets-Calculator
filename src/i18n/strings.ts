@@ -14,6 +14,9 @@ export type StringKey =
   | 'filterNotAvailable'
   // Filter bar
   | 'resetFilters'
+  | 'clearSelection' | 'clearSelectionTooltip' | 'selectAll'
+  | 'selectionFrameArmed' | 'selectionFrameDrawing'
+  | 'unitMeter'
   // Calculator section
   | 'instruction'
   | 'calculationMethod' | 'calculationParameters'
@@ -71,6 +74,12 @@ const en: Record<StringKey, string> = {
   filterNotAvailable: 'Not available in Sderot',
 
   resetFilters: 'Reset Filters',
+  clearSelection: 'Clear Selection',
+  clearSelectionTooltip: 'Removes only manually-clicked streets. Filter-selected streets stay until you reset the filter.',
+  selectAll: 'Select All',
+  selectionFrameArmed: 'Click on the map to place the first corner of the selection frame. Press Esc to cancel.',
+  selectionFrameDrawing: 'Move the mouse to size the selection frame, then click to finish. Press Esc to cancel.',
+  unitMeter: 'm',
 
   instruction: "Using the above buttons, filter out streets that do not require planting (by default, all the city's streets are considered). Next, choose the target calculation method, change the calculation parameters as you wish, and press Calculate.",
   calculationMethod: 'Calculation Method',
@@ -191,6 +200,12 @@ const he: Record<StringKey, string> = {
   filterNotAvailable: 'לא זמין בשדרות',
 
   resetFilters: 'אפס מסננים',
+  clearSelection: 'נקה בחירה',
+  clearSelectionTooltip: 'מסיר רק רחובות שנבחרו ידנית. רחובות שנבחרו על ידי מסננים יישארו עד לאיפוס המסנן.',
+  selectAll: 'בחר הכל',
+  selectionFrameArmed: 'לחצו על המפה כדי לקבוע את הפינה הראשונה של מסגרת הבחירה. הקישו Esc לביטול.',
+  selectionFrameDrawing: 'הזיזו את העכבר כדי לקבוע את גודל המסגרת ולחצו לסיום. הקישו Esc לביטול.',
+  unitMeter: 'מ׳',
 
   instruction: 'באמצעות הלחצנים שלמעלה, סננו החוצה רחובות שאינם דורשים נטיעה (כברירת מחדל, כל רחובות העיר נכללים בחישוב). לאחר מכן, בחרו את שיטת חישוב היעד, שנו את הפרמטרים לחישוב לפי הצורך ולחצו על "חשב".',
   calculationMethod: 'שיטת חישוב',
@@ -333,12 +348,16 @@ export const CATEGORY_LABELS: Record<Locale, Record<string, string>> = {
 export const LAYER_TITLES: Record<Locale, Record<string, string>> = {
   en: {
     'Selected streets': 'Selected streets',
+    // The in-code highlight overlay is the panel-facing "Selected streets"
+    // entry — the always-grey base underneath is hidden from the panel.
+    'Selected streets (highlight)': 'Selected streets',
     'Spring/summer Shade Index': 'Spring/Summer Shade Index',
     'Tree canopies 2025': 'Tree canopies 2025',
     'Existing street tree locations 2025': 'Existing street trees 2025'
   },
   he: {
     'Selected streets': 'רחובות נבחרים',
+    'Selected streets (highlight)': 'רחובות נבחרים',
     'Spring/summer Shade Index': 'מדד ההצללה באביב/בקיץ',
     'Tree canopies 2025': 'חופות עצים 2025',
     'Existing street tree locations 2025': 'עצי רחוב קיימים 2025'
