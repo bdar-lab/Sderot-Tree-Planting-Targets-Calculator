@@ -94,20 +94,38 @@ export default function MapPanel ({ onReady, onStreetClick, onStreetRectangleSel
     }
 
     // Create the highlight overlay: a second FeatureLayer against the same
-    // service URL, painted light-blue, added on top of the stack. This is
-    // the layer the filter/click union clause is written to.
+    // service URL, painted light-blue, added on top of the stack. All
+    // features load once (no definitionExpression); which of them PAINT
+    // is controlled per-frame via the LayerView's client-side .filter.
+    // That's what makes rectangle-select re-highlight instantly, without
+    // waiting for a server round-trip on every click burst.
     if (selected && (selected as any).url != null) {
       const highlight = new FeatureLayer({
         url: (selected as any).url,
         title: SELECTION_HIGHLIGHT_LAYER_TITLE,
         renderer: SELECTION_HIGHLIGHT_RENDERER as any,
-        // Start empty so no features flash on load before the sidebar
-        // pushes its first definitionExpression.
-        definitionExpression: '1=0',
         listMode: 'hide'
       })
       ;(highlight as any).__canonicalTitle = SELECTION_HIGHLIGHT_LAYER_TITLE
       webmap.layers.add(highlight as any)
+      // Hide everything until the sidebar's first union update, then
+      // stash the layer view so Sidebar can swap the filter in place.
+      view.whenLayerView(highlight as any).then((lv: any) => {
+        // Empty objectIds list = paint nothing.
+        lv.filter = { where: '1=0' }
+        ;(handle as any).highlightLayerView = lv
+      }).catch(() => { /* layer failed to create — highlight stays blank */ })
+    }
+    // Also capture the shade-index layer view so its client-side filter
+    // can be updated in lock-step with the highlight (same visible set).
+    for (const m of FILTER_LAYER_MAPPINGS) {
+      const layer = findLayerByTitle(webmap, m.layerTitle)
+      if (!layer) continue
+      view.whenLayerView(layer as any).then((lv: any) => {
+        lv.filter = { where: '1=0' }
+        ;(handle as any).shadeLayerViews = (handle as any).shadeLayerViews || []
+        ;(handle as any).shadeLayerViews.push(lv)
+      }).catch(() => { /* ignore */ })
     }
     const trees = findLayerByTitle(webmap, TREES_LAYER_TITLE)
     if (trees) {

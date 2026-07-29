@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import MapPanel from './map/MapPanel'
 import Sidebar from './calculator/Sidebar'
 import Header from './components/Header'
@@ -8,6 +8,8 @@ import { findLayerByTitle, type WebMapHandle } from './map/useWebMap'
 import { SELECTED_LAYER_TITLE } from './map/layers'
 import { useLocale } from './i18n/locale'
 import { t } from './i18n/strings'
+import { type FiltersMap } from './calculator/filter-sql'
+import * as SavedSel from './calculator/saved-selections'
 
 // Top-level layout shell: header + map + calculator sidebar + dialogs.
 // Owns the manually-clicked selection set so both MapPanel (which toggles
@@ -19,6 +21,13 @@ export default function App () {
   const [oidField, setOidField] = useState<string | null>(null)
   const [dialog, setDialog] = useState<'instructions' | 'about' | null>(null)
   const [manualIds, setManualIds] = useState<Set<number>>(() => new Set())
+  // Sidebar owns the filters state; App needs read access so it can
+  // snapshot the current filters when saving a named selection, and
+  // write access so loading a saved selection restores them. Ref for
+  // reads, setter callback for writes — both plumbed through Sidebar
+  // props below.
+  const filtersRef = useRef<FiltersMap | null>(null)
+  const restoreFiltersRef = useRef<((f: FiltersMap) => void) | null>(null)
 
   const onMapReady = useCallback((h: WebMapHandle, oid: string | null) => {
     setMapHandle(h)
@@ -63,6 +72,26 @@ export default function App () {
   // equivalent to selecting every street regardless of the filter. Kept
   // as an explicit user action rather than a "1=1" default so a fresh
   // load stays visually calm.
+  // Save the current (manualIds + filters) snapshot under a user-supplied
+  // name. Returns the persisted record so the caller can toast its name.
+  const onSaveSelection = useCallback((name: string): SavedSel.SavedSelection | null => {
+    const filters = filtersRef.current
+    if (!filters) return null
+    return SavedSel.save(name, manualIds, filters)
+  }, [manualIds])
+
+  // Load a saved set: replace manualIds and push filter values back into
+  // Sidebar via its restore callback (which triggers the union-SQL effect
+  // just like a normal filter change).
+  const onLoadSelection = useCallback((id: string): SavedSel.SavedSelection | null => {
+    const all = SavedSel.loadAll()
+    const rec = all.find(s => s.id === id) || null
+    if (!rec) return null
+    setManualIds(new Set(rec.manualIds))
+    restoreFiltersRef.current?.(rec.filters)
+    return rec
+  }, [])
+
   const onSelectAll = useCallback(async () => {
     if (!mapHandle?.webmap || !oidField) return
     const base = findLayerByTitle(mapHandle.webmap, SELECTED_LAYER_TITLE)
@@ -103,6 +132,10 @@ export default function App () {
             manualIds={manualIds}
             onClearSelection={onClearSelection}
             onSelectAll={onSelectAll}
+            onFiltersChange={(f) => { filtersRef.current = f }}
+            registerRestoreFilters={(fn) => { restoreFiltersRef.current = fn }}
+            onSaveSelection={onSaveSelection}
+            onLoadSelection={onLoadSelection}
           />
         )}
       </main>

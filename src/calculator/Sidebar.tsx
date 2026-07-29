@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { findLayerByTitle, type WebMapHandle } from '../map/useWebMap'
 import {
-  SELECTION_HIGHLIGHT_LAYER_TITLE,
-  FILTER_LAYER_MAPPINGS,
+  SELECTED_LAYER_TITLE,
   KNOWN_FILTER_FIELDS
 } from '../map/layers'
 import { FILTER_DEFINITIONS } from './filter-definitions'
@@ -11,6 +10,7 @@ import {
 } from './filter-sql'
 import { t } from '../i18n/strings'
 import { type Locale } from '../i18n/locale'
+import type { SavedSelection } from './saved-selections'
 import FilterBar from './FilterBar'
 import Calculator from './Calculator'
 
@@ -39,109 +39,122 @@ interface Props {
   onClearSelection: () => void
   /** Queries every street OID and adds them all to the selection at once. */
   onSelectAll: () => void
+  /** Fires on every filter change so App can snapshot the current state
+   *  when the user saves a named selection. */
+  onFiltersChange: (filters: FiltersMap) => void
+  /** App calls this once on mount to hand over a "here's how you restore
+   *  filters" callback, which loadSelection invokes. */
+  registerRestoreFilters: (restore: (filters: FiltersMap) => void) => void
+  /** Persist the current (manualIds + filters) snapshot under a name. */
+  onSaveSelection: (name: string) => SavedSelection | null
+  /** Load a saved snapshot by id — App applies it to manualIds + filters. */
+  onLoadSelection: (id: string) => SavedSelection | null
 }
 
 export default function Sidebar ({
-  locale, map, oidField, manualIds, onClearSelection, onSelectAll
+  locale, map, oidField, manualIds, onClearSelection, onSelectAll,
+  onFiltersChange, registerRestoreFilters, onSaveSelection, onLoadSelection
 }: Props) {
   const [filters, setFilters] = useState<FiltersMap>(createInitialFilters)
-  const [segmentCountText, setSegmentCountText] = useState('')
   const [loading, setLoading] = useState(false)
-  const prevSqlRef = useRef<string>('')
-  const expectedSqlRef = useRef<string>('1=0')
+  // Displayed status text under the header. Normally reflects the current
+  // union OID count; Calculator temporarily overrides it during Calculate
+  // ("Fetching…", "No records found", etc.), then the effect below
+  // restores it once loading finishes.
+  const [segmentCountText, setSegmentCountText] = useState('')
+  // OIDs matched by the current filter clauses, queried from the server
+  // exactly once per filter change. Kept out of React state so that pure
+  // click bursts (which don't change filterSql) never trigger a re-query.
+  const filterMatchIdsRef = useRef<Set<number>>(new Set())
+  const [filterSqlSnapshot, setFilterSqlSnapshot] = useState<string>('1=1')
 
-  // Push the UNION of filter clauses + manually-clicked OIDs into the
-  // highlight overlay's definitionExpression. Filter layers (e.g. the
-  // Shade Index visualization) still get the raw filter SQL so their
-  // gradient narrows to the filtered subset — that layer is separate from
-  // the selection concept.
+  // Keep App's filters ref in sync so it can snapshot on save.
+  useEffect(() => { onFiltersChange(filters) }, [filters, onFiltersChange])
+
+  // Hand App a stable "how to restore filters" callback exactly once.
   useEffect(() => {
-    if (!map.ready || !map.webmap) return
+    registerRestoreFilters((f) => setFilters(f))
+  }, [registerRestoreFilters])
+
+  // Recompute the filter SQL from `filters` and, if it actually changed,
+  // query the server for the OID set that matches it. This is the only
+  // place we still hit the server for selection state; the result is
+  // cached until the user moves a slider.
+  useEffect(() => {
+    if (!map.ready || !map.webmap || !oidField) return
     const rawFilterSql = buildCombinedSql(filters)
     const clauses = [...parseFilterClauses(rawFilterSql, KNOWN_FILTER_FIELDS).values()]
     const filterSql = clauses.length > 0 ? clauses.join(' AND ') : '1=1'
-
-    // Build the click clause. Skip it if OID discovery hasn't finished yet
-    // OR the set is empty — either way, filter alone drives the selection.
-    const clicksSql = (oidField && manualIds.size > 0)
-      ? `${oidField} IN (${[...manualIds].join(',')})`
-      : null
-
-    // Union rules:
-    //   - both empty              → '1=0' (highlight overlay shows nothing)
-    //   - filter only             → filterSql
-    //   - clicks only             → clicksSql
-    //   - both present            → (filterSql) OR clicksSql
-    //   Note: filter '1=1' means "no active sliders". In that case we
-    //   want the OVERLAY to also be empty until the user actually picks
-    //   something — otherwise the entire map would flash blue on load.
-    let combined: string
-    if (filterSql === '1=1' && !clicksSql) combined = '1=0'
-    else if (filterSql === '1=1' && clicksSql) combined = clicksSql
-    else if (!clicksSql) combined = filterSql
-    else combined = `(${filterSql}) OR ${clicksSql}`
-
-    if (combined === prevSqlRef.current) return
-    prevSqlRef.current = combined
-    expectedSqlRef.current = combined
-
-    // Filter visualization layers (e.g. the Shade Index gradient) get the
-    // full union too — the gradient should reveal exactly the same street
-    // set that's painted blue on the highlight overlay, so manual clicks
-    // outside the filter still show their shade colour.
-    for (const m of FILTER_LAYER_MAPPINGS) {
-      const layer = findLayerByTitle(map.webmap, m.layerTitle)
-      if (layer) layer.definitionExpression = combined
+    if (filterSql === filterSqlSnapshot) return
+    setFilterSqlSnapshot(filterSql)
+    // No active clauses → no filter matches (union will just be manualIds).
+    if (filterSql === '1=1') {
+      filterMatchIdsRef.current = new Set()
+      return
     }
-    // The highlight overlay gets the same union.
-    const highlight = findLayerByTitle(map.webmap, SELECTION_HIGHLIGHT_LAYER_TITLE)
-    if (highlight) highlight.definitionExpression = combined
-  }, [filters, manualIds, oidField, map.ready, map.webmap])
-
-  // Guard the highlight layer (and filter viz layers) against external
-  // definitionExpression resets (e.g. popup interactions).
-  useEffect(() => {
-    if (!map.ready || !map.webmap) return
-    const handles: IHandle[] = []
-    const titles = [
-      ...FILTER_LAYER_MAPPINGS.map(m => m.layerTitle),
-      SELECTION_HIGHLIGHT_LAYER_TITLE
-    ]
-    for (const title of titles) {
-      const layer = findLayerByTitle(map.webmap, title)
-      if (!layer) continue
-      const h = layer.watch('definitionExpression', (newVal: string) => {
-        if (newVal !== expectedSqlRef.current) {
-          layer.definitionExpression = expectedSqlRef.current
-        }
-      })
-      handles.push(h)
-    }
-    return () => handles.forEach(h => h.remove())
-  }, [map.ready, map.webmap])
-
-  // Poll the live count of selected segments. Reads from the highlight
-  // overlay so it reflects the same union the user sees painted blue.
-  useEffect(() => {
-    if (!map.ready || !map.webmap) return
-    const highlight = findLayerByTitle(map.webmap, SELECTION_HIGHLIGHT_LAYER_TITLE)
-    if (!highlight) return
+    const base = findLayerByTitle(map.webmap, SELECTED_LAYER_TITLE)
+    if (!base) return
     let cancelled = false
-    const update = async () => {
-      if (loading) return
+    ;(async () => {
       try {
-        const q = highlight.createQuery()
-        q.where = highlight.definitionExpression || '1=0'
-        const count = await highlight.queryFeatureCount(q)
-        if (!cancelled && !loading) {
-          setSegmentCountText(t(locale, 'streetSegmentsSelected', { n: count.toLocaleString() }))
+        const q = base.createQuery()
+        q.where = filterSql
+        q.outFields = [oidField]
+        q.returnGeometry = false
+        const res = await base.queryFeatures(q)
+        if (cancelled) return
+        const next = new Set<number>()
+        for (const f of res.features || []) {
+          const v = f.attributes?.[oidField]
+          if (typeof v === 'number') next.add(v)
         }
-      } catch (_) { /* ignore transient query errors */ }
-    }
-    update()
-    const interval = setInterval(update, 2000)
-    return () => { cancelled = true; clearInterval(interval) }
-  }, [map.ready, map.webmap, loading, locale])
+        filterMatchIdsRef.current = next
+        // Force the applier-effect below to rerun by bumping the snapshot.
+        setFilterSqlSnapshot(s => s + ' ')
+      } catch (_) { /* leave stale cache; visualization won't update */ }
+    })()
+    return () => { cancelled = true }
+  }, [filters, oidField, map.ready, map.webmap, filterSqlSnapshot])
+
+  // Union set = filter matches ∪ manually-clicked OIDs. Recomputed on
+  // every relevant change — cheap because both inputs are already in
+  // memory.
+  const unionOids = useMemo<number[]>(() => {
+    const s = new Set<number>(filterMatchIdsRef.current)
+    manualIds.forEach(o => s.add(o))
+    return [...s]
+    // filterSqlSnapshot is included so this recomputes when the async
+    // query above finishes and bumps the snapshot.
+  }, [manualIds, filterSqlSnapshot])
+
+  // Push the union OID list into the highlight + shade-index LayerViews
+  // as a client-side filter. This is what makes rectangle-select feel
+  // instant: no server round-trip, just a re-paint of features that are
+  // already loaded on the client.
+  //
+  // Gotcha: FeatureFilter treats { objectIds: [] } the same as "no
+  // filter" and paints ALL features — the opposite of what we want when
+  // the selection is empty. Use `where: '1=0'` in that case to reliably
+  // paint nothing.
+  useEffect(() => {
+    if (!map.ready) return
+    const hlv = map.highlightLayerView
+    const shadeLvs = map.shadeLayerViews || []
+    const spec = unionOids.length === 0
+      ? { where: '1=0' }
+      : { objectIds: unionOids }
+    if (hlv) hlv.filter = spec
+    for (const lv of shadeLvs) lv.filter = spec
+  }, [unionOids, map])
+
+  // Push the derived count into the display text whenever the union
+  // changes or locale flips. During a Calculate run Calculator overrides
+  // this transiently via setSegmentCountText; once loading returns to
+  // false the effect re-syncs to the truth.
+  useEffect(() => {
+    if (loading) return
+    setSegmentCountText(t(locale, 'streetSegmentsSelected', { n: unionOids.length.toLocaleString() }))
+  }, [unionOids, locale, loading])
 
   const handleUpdateValue = useCallback((field: string, value: number | [number, number]) => {
     setFilters(prev => ({ ...prev, [field]: { ...prev[field], value } }))
@@ -160,10 +173,11 @@ export default function Sidebar ({
 
   const handleReset = useCallback(() => setFilters(createInitialFilters()), [])
 
-  // Calculator + count polling both read from the highlight overlay, which
-  // carries the union clause. The grey base is left untouched.
+  // Calculator queries the grey base (that's the layer with the real
+  // attributes + geometry). The highlight overlay is purely a paint layer
+  // now — we don't touch its definitionExpression any more.
   const selectedLayer = map.webmap
-    ? findLayerByTitle(map.webmap, SELECTION_HIGHLIGHT_LAYER_TITLE)
+    ? findLayerByTitle(map.webmap, SELECTED_LAYER_TITLE)
     : null
 
   return (
@@ -178,10 +192,16 @@ export default function Sidebar ({
         clearSelectionEnabled={manualIds.size > 0}
         onSelectAll={onSelectAll}
         selectAllEnabled={!!oidField}
+        onSaveSelection={onSaveSelection}
+        onLoadSelection={onLoadSelection}
+        saveSelectionEnabled={manualIds.size > 0}
       />
       <Calculator
         locale={locale}
         selectedLayer={selectedLayer}
+        unionOids={unionOids}
+        oidField={oidField}
+        filterDescriptionSql={filterSqlSnapshot.trim()}
         view={map.view}
         map={map}
         segmentCountText={segmentCountText}
@@ -192,5 +212,3 @@ export default function Sidebar ({
   )
 }
 
-// Minimal shape of an ArcGIS watch handle.
-interface IHandle { remove: () => void }

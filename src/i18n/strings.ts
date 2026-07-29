@@ -17,6 +17,12 @@ export type StringKey =
   | 'clearSelection' | 'clearSelectionTooltip' | 'selectAll'
   | 'selectionFrameArmed' | 'selectionFrameDrawing'
   | 'unitMeter'
+  | 'saveSelection' | 'saveSelectionTooltip' | 'saveSelectionPrompt' | 'saveSelectionSaved'
+  | 'loadSelection' | 'loadSelectionLoaded' | 'loadSelectionRow'
+  | 'savedSelections' | 'noSavedSelections'
+  | 'renameSelection' | 'renameSelectionPrompt'
+  | 'deleteSelection' | 'deleteSelectionConfirm'
+  | 'exportSelections' | 'importSelections' | 'importSelectionResult'
   // Calculator section
   | 'instruction'
   | 'calculationMethod' | 'calculationParameters'
@@ -80,6 +86,22 @@ const en: Record<StringKey, string> = {
   selectionFrameArmed: 'Click on the map to place the first corner of the selection frame. Press Esc to cancel.',
   selectionFrameDrawing: 'Move the mouse to size the selection frame, then click to finish. Press Esc to cancel.',
   unitMeter: 'm',
+  saveSelection: 'Save…',
+  saveSelectionTooltip: 'Save the current selection (streets + filter settings) under a name.',
+  saveSelectionPrompt: 'Name this selection:',
+  saveSelectionSaved: 'Saved selection "{name}".',
+  loadSelection: 'Load…',
+  loadSelectionLoaded: 'Loaded "{name}" ({n} streets).',
+  loadSelectionRow: 'Load — {n} streets',
+  savedSelections: 'Saved selections',
+  noSavedSelections: 'No saved selections yet.',
+  renameSelection: 'Rename',
+  renameSelectionPrompt: 'New name:',
+  deleteSelection: 'Delete',
+  deleteSelectionConfirm: 'Delete saved selection "{name}"?',
+  exportSelections: 'Export all…',
+  importSelections: 'Import…',
+  importSelectionResult: 'Imported {n} selection(s).',
 
   instruction: "Using the above buttons, filter out streets that do not require planting (by default, all the city's streets are considered). Next, choose the target calculation method, change the calculation parameters as you wish, and press Calculate.",
   calculationMethod: 'Calculation Method',
@@ -206,6 +228,22 @@ const he: Record<StringKey, string> = {
   selectionFrameArmed: 'לחצו על המפה כדי לקבוע את הפינה הראשונה של מסגרת הבחירה. הקישו Esc לביטול.',
   selectionFrameDrawing: 'הזיזו את העכבר כדי לקבוע את גודל המסגרת ולחצו לסיום. הקישו Esc לביטול.',
   unitMeter: 'מ׳',
+  saveSelection: 'שמור…',
+  saveSelectionTooltip: 'שמירת הבחירה הנוכחית (רחובות + מסננים) תחת שם.',
+  saveSelectionPrompt: 'שם הבחירה:',
+  saveSelectionSaved: 'הבחירה "{name}" נשמרה.',
+  loadSelection: 'טען…',
+  loadSelectionLoaded: 'נטענה הבחירה "{name}" ({n} רחובות).',
+  loadSelectionRow: 'טעינה — {n} רחובות',
+  savedSelections: 'בחירות שמורות',
+  noSavedSelections: 'אין עדיין בחירות שמורות.',
+  renameSelection: 'שנה שם',
+  renameSelectionPrompt: 'שם חדש:',
+  deleteSelection: 'מחק',
+  deleteSelectionConfirm: 'למחוק את הבחירה השמורה "{name}"?',
+  exportSelections: 'ייצוא הכל…',
+  importSelections: 'ייבוא…',
+  importSelectionResult: 'יובאו {n} בחירות.',
 
   instruction: 'באמצעות הלחצנים שלמעלה, סננו החוצה רחובות שאינם דורשים נטיעה (כברירת מחדל, כל רחובות העיר נכללים בחישוב). לאחר מכן, בחרו את שיטת חישוב היעד, שנו את הפרמטרים לחישוב לפי הצורך ולחצו על "חשב".',
   calculationMethod: 'שיטת חישוב',

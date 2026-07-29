@@ -39,22 +39,36 @@ const ROWS = 2
 
 interface Props {
   locale: Locale
-  /** The "Selected streets" layer — its definitionExpression is the filter. */
+  /** The grey "Selected streets" base layer — the source of truth for
+   *  street geometry + width/summer_SI/length attributes. Its own
+   *  definitionExpression is intentionally null; we build the WHERE
+   *  ourselves from the passed-in unionOids at Calculate time. */
   selectedLayer: FeatureLayer | null
+  /** OIDs of every currently-selected street (filter ∪ manual clicks).
+   *  Passed as a live array so Calculate always processes the exact set
+   *  the user sees painted blue on the map. */
+  unionOids: number[]
+  /** OID field name for the street layer (e.g. FID / OBJECTID). */
+  oidField: string | null
+  /** Just the FILTER-clause SQL (not the union), used by the PDF's
+   *  "applied assumptions" prose. Manual clicks aren't describable as
+   *  prose so they're intentionally omitted from that section. */
+  filterDescriptionSql: string
   /** MapView, needed for the PDF screenshot. */
   view: MapView | null
   /** Handle to the WebMap so we can find the tree-trunks layer for the
    *  existing-tree spatial join. */
   map: WebMapHandle | null
-  /** Live segment count string (managed by the parent's polling). */
+  /** Live segment count string (managed by the parent). */
   segmentCountText: string
-  /** Lets the parent show "Processing…" instead of the polled count. */
+  /** Lets the parent show "Processing…" instead of the live count. */
   onLoadingChange: (loading: boolean) => void
   setSegmentCountText: (s: string) => void
 }
 
 export default function Calculator ({
-  locale, selectedLayer, view, map, segmentCountText, onLoadingChange, setSegmentCountText
+  locale, selectedLayer, unionOids, oidField, filterDescriptionSql, view, map,
+  segmentCountText, onLoadingChange, setSegmentCountText
 }: Props) {
   const cat = CATEGORY_LABELS[locale]
 
@@ -79,7 +93,15 @@ export default function Calculator ({
     setLoading(true); onLoadingChange(true)
     setSegmentCountText(t(locale, 'fetchingRecords'))
     try {
-      const where = selectedLayer.definitionExpression || '1=1'
+      // Build the WHERE from the passed-in unionOids. Empty selection →
+      // no query at all; a bounded IN-list keeps the query cost linear
+      // in the selection size.
+      if (unionOids.length === 0 || !oidField) {
+        setSegmentCountText(t(locale, 'noRecordsFound'))
+        setLoading(false); onLoadingChange(false)
+        return
+      }
+      const where = `${oidField} IN (${unionOids.join(',')})`
       // Paginated fetch of all matching segments — geometry is needed for
       // the tree spatial join below.
       const features: any[] = []
@@ -176,7 +198,7 @@ export default function Calculator ({
           scenario, subScenario, diameter, tccrGlobal, wtypeTargets,
           spacing, rows: ROWS, ...FIELD_CONFIG
         },
-        translateFilters(where, locale)
+        translateFilters(filterDescriptionSql, locale)
       )
       setResults(summary)
       setSegmentCountText(t(locale, 'calculatedSegments', { n: features.length }))
@@ -293,7 +315,7 @@ export default function Calculator ({
         )}
       </div>
 
-      <button onClick={onCompute} disabled={!selectedLayer || loading}
+      <button onClick={onCompute} disabled={!selectedLayer || unionOids.length === 0 || loading}
         style={{ width: '100%', padding: '8px', background: loading ? '#555' : '#4a90d9', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, cursor: loading ? 'default' : 'pointer', marginBottom: 8 }}>
         {loading ? t(locale, 'processing') : t(locale, 'calculate')}
       </button>

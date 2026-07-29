@@ -20,6 +20,14 @@ export interface WebMapHandle {
   ready: boolean
   /** Any load error. */
   error: Error | null
+  /** Client-side FeatureLayerView for the light-blue selection overlay.
+   *  Populated by MapPanel once `view.whenLayerView` resolves; Sidebar
+   *  writes to `.filter.objectIds` instead of `definitionExpression` so
+   *  large selections re-paint instantly. */
+  highlightLayerView?: any
+  /** Same idea for the shade-index / other filter-visualization layers,
+   *  captured in one array so Sidebar can update them together. */
+  shadeLayerViews?: any[]
 }
 
 /**

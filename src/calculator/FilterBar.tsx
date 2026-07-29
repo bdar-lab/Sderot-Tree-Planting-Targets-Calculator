@@ -4,6 +4,14 @@ import { FILTER_DEFINITIONS, type FilterDef } from './filter-definitions'
 import { type FiltersMap } from './filter-sql'
 import { t } from '../i18n/strings'
 import { type Locale } from '../i18n/locale'
+import {
+  loadAll as loadAllSavedSelections,
+  remove as removeSavedSelection,
+  rename as renameSavedSelection,
+  exportToFile as exportSavedSelectionsToFile,
+  importFromFile as importSavedSelectionsFromFile,
+  type SavedSelection
+} from './saved-selections'
 import '../styles/filter-bar.css'
 
 // Display-unit helper: `def.unit` in the filter definitions is stored as
@@ -179,16 +187,85 @@ interface Props {
   clearSelectionEnabled: boolean
   onSelectAll: () => void
   selectAllEnabled: boolean
+  onSaveSelection: (name: string) => SavedSelection | null
+  onLoadSelection: (id: string) => SavedSelection | null
+  saveSelectionEnabled: boolean
 }
 
 export default function FilterBar ({
   filters, locale, onUpdateValue, onToggle, onReset,
   onClearSelection, clearSelectionEnabled,
-  onSelectAll, selectAllEnabled
+  onSelectAll, selectAllEnabled,
+  onSaveSelection, onLoadSelection, saveSelectionEnabled
 }: Props) {
   const [openPopover, setOpenPopover] = useState<string | null>(null)
   const [hoveredIcon, setHoveredIcon] = useState<string | null>(null)
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null)
+  // Load-selections popover state. `loadPopoverPos` is set from the button's
+  // bounding rect the moment the user clicks Load, then rendered through a
+  // portal (same pattern as the filter-icon popovers).
+  const [loadPopoverOpen, setLoadPopoverOpen] = useState(false)
+  const [loadPopoverPos, setLoadPopoverPos] = useState<{ top: number; left: number } | null>(null)
+  const [savedSets, setSavedSets] = useState<SavedSelection[]>([])
+  const loadBtnRef = useRef<HTMLButtonElement | null>(null)
+  const importInputRef = useRef<HTMLInputElement | null>(null)
+
+  const openLoadPopover = () => {
+    setSavedSets(loadAllSavedSelections())
+    const el = loadBtnRef.current
+    if (el) {
+      const r = el.getBoundingClientRect()
+      setLoadPopoverPos({ top: r.bottom + 6, left: Math.max(r.left - 140, 10) })
+    }
+    setLoadPopoverOpen(true)
+  }
+  const closeLoadPopover = () => {
+    setLoadPopoverOpen(false)
+    setLoadPopoverPos(null)
+  }
+
+  const handleSaveClick = () => {
+    const name = window.prompt(t(locale, 'saveSelectionPrompt'), '')
+    if (name === null) return
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const rec = onSaveSelection(trimmed)
+    if (rec) window.alert(t(locale, 'saveSelectionSaved', { name: rec.name }))
+  }
+
+  const handleLoadPick = (id: string) => {
+    const rec = onLoadSelection(id)
+    closeLoadPopover()
+    if (rec) {
+      window.alert(t(locale, 'loadSelectionLoaded', { name: rec.name, n: rec.manualIds.length.toString() }))
+    }
+  }
+
+  const handleRenameSet = (id: string, current: string) => {
+    const next = window.prompt(t(locale, 'renameSelectionPrompt'), current)
+    if (next === null) return
+    const trimmed = next.trim()
+    if (!trimmed || trimmed === current) return
+    renameSavedSelection(id, trimmed)
+    setSavedSets(loadAllSavedSelections())
+  }
+
+  const handleDeleteSet = (id: string, name: string) => {
+    if (!window.confirm(t(locale, 'deleteSelectionConfirm', { name }))) return
+    removeSavedSelection(id)
+    setSavedSets(loadAllSavedSelections())
+  }
+
+  const handleExport = () => { exportSavedSelectionsToFile() }
+
+  const handleImportPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const n = await importSavedSelectionsFromFile(file)
+    setSavedSets(loadAllSavedSelections())
+    window.alert(t(locale, 'importSelectionResult', { n: n.toString() }))
+  }
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null)
   const iconRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
@@ -285,7 +362,7 @@ export default function FilterBar ({
           )
         })}
       </div>
-      <div style={{ textAlign: 'center', padding: '4px 10px 0', display: 'flex', gap: 6, justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center', padding: '4px 10px 0', display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', direction: locale === 'he' ? 'rtl' : 'ltr' }}>
         <button onClick={onReset}
           style={{ fontSize: 10, color: '#aaa', background: 'none', border: '1px solid #555', borderRadius: 3, padding: '2px 10px', cursor: 'pointer' }}>
           {t(locale, 'resetFilters')}
@@ -321,8 +398,122 @@ export default function FilterBar ({
         >
           {t(locale, 'selectAll')}
         </button>
+        {/* Force Save/Load onto a second row in Hebrew — the longer word
+            "בחירות שמורות" pushes the row otherwise, but Hebrew users
+            asked for a consistent two-row layout regardless of width. */}
+        {locale === 'he' && <div style={{ flexBasis: '100%', height: 0 }} />}
+        <button
+          onClick={handleSaveClick}
+          disabled={!saveSelectionEnabled}
+          title={t(locale, 'saveSelectionTooltip')}
+          style={{
+            fontSize: 10,
+            color: saveSelectionEnabled ? '#aaa' : '#555',
+            background: 'none',
+            border: `1px solid ${saveSelectionEnabled ? '#555' : '#333'}`,
+            borderRadius: 3,
+            padding: '2px 10px',
+            cursor: saveSelectionEnabled ? 'pointer' : 'not-allowed'
+          }}
+        >
+          {t(locale, 'saveSelection')}
+        </button>
+        <button
+          ref={loadBtnRef}
+          onClick={openLoadPopover}
+          style={{ fontSize: 10, color: '#aaa', background: 'none', border: '1px solid #555', borderRadius: 3, padding: '2px 10px', cursor: 'pointer' }}
+        >
+          {t(locale, 'loadSelection')}
+        </button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json,.json"
+          style={{ display: 'none' }}
+          onChange={handleImportPicked}
+        />
       </div>
       {createPortal(portalContent, document.body)}
+      {loadPopoverOpen && loadPopoverPos && createPortal(
+        <>
+          {/* Click-catcher — closes popover when the user clicks outside. */}
+          <div
+            onClick={closeLoadPopover}
+            style={{ position: 'fixed', inset: 0, background: 'transparent', zIndex: 999 }}
+          />
+          <div
+            dir={locale === 'he' ? 'rtl' : 'ltr'}
+            style={{
+              position: 'fixed',
+              top: loadPopoverPos.top,
+              left: loadPopoverPos.left,
+              minWidth: 260,
+              maxWidth: 340,
+              maxHeight: 360,
+              overflowY: 'auto',
+              background: '#2a2a2a',
+              border: '1px solid #555',
+              borderRadius: 4,
+              padding: 8,
+              boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+              zIndex: 1000,
+              color: '#ddd',
+              fontSize: 11
+            }}
+          >
+            <div style={{ fontWeight: 'bold', marginBottom: 6, paddingBottom: 4, borderBottom: '1px solid #444' }}>
+              {t(locale, 'savedSelections')}
+            </div>
+            {savedSets.length === 0 ? (
+              <div style={{ color: '#888', padding: '6px 2px' }}>{t(locale, 'noSavedSelections')}</div>
+            ) : (
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {savedSets.map(s => (
+                  <li key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0', borderBottom: '1px solid #333' }}>
+                    <button
+                      onClick={() => handleLoadPick(s.id)}
+                      title={t(locale, 'loadSelectionRow', { n: s.manualIds.length.toString() })}
+                      style={{ flex: 1, textAlign: locale === 'he' ? 'right' : 'left', background: 'none', border: 'none', color: '#ddd', cursor: 'pointer', padding: '2px 4px', fontSize: 11 }}
+                    >
+                      {s.name} <span style={{ color: '#888' }}>({s.manualIds.length})</span>
+                    </button>
+                    <button
+                      onClick={() => handleRenameSet(s.id, s.name)}
+                      title={t(locale, 'renameSelection')}
+                      style={{ background: 'none', border: '1px solid #555', color: '#aaa', borderRadius: 3, padding: '1px 6px', fontSize: 10, cursor: 'pointer' }}
+                    >
+                      {t(locale, 'renameSelection')}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSet(s.id, s.name)}
+                      title={t(locale, 'deleteSelection')}
+                      style={{ background: 'none', border: '1px solid #833', color: '#c66', borderRadius: 3, padding: '1px 6px', fontSize: 10, cursor: 'pointer' }}
+                    >
+                      {t(locale, 'deleteSelection')}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, paddingTop: 6, borderTop: '1px solid #444', direction: locale === 'he' ? 'rtl' : 'ltr' }}>
+              <button
+                onClick={handleExport}
+                disabled={savedSets.length === 0}
+                style={{ flex: 1, fontSize: 10, background: 'none', border: '1px solid #555', color: savedSets.length ? '#aaa' : '#555', borderRadius: 3, padding: '3px 6px', cursor: savedSets.length ? 'pointer' : 'not-allowed' }}
+              >
+                {t(locale, 'exportSelections')}
+              </button>
+              <button
+                onClick={() => importInputRef.current?.click()}
+                style={{ flex: 1, fontSize: 10, background: 'none', border: '1px solid #555', color: '#aaa', borderRadius: 3, padding: '3px 6px', cursor: 'pointer' }}
+              >
+                {t(locale, 'importSelections')}
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
     </>
   )
 }
