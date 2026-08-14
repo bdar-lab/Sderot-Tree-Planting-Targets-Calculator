@@ -35,7 +35,14 @@ interface Props {
   /** Manually-clicked street OIDs. Owned by App so both this sidebar and
    *  MapPanel's click handler see the same source of truth. */
   manualIds: Set<number>
-  /** Clears every manually-clicked OID; filters are NOT touched. */
+  /** OIDs the user has explicitly de-selected. Subtracted from the union
+   *  regardless of source — the only way filter-matched streets can be
+   *  dropped. */
+  removedIds: Set<number>
+  /** Fires whenever the server-queried filter-match set updates so App's
+   *  click handler can tell if a given OID is currently in the union. */
+  onFilterMatchesChange: (matches: Set<number>) => void
+  /** Clears manual + removed sets; filters are NOT touched. */
   onClearSelection: () => void
   /** Queries every street OID and adds them all to the selection at once. */
   onSelectAll: () => void
@@ -45,6 +52,14 @@ interface Props {
   /** App calls this once on mount to hand over a "here's how you restore
    *  filters" callback, which loadSelection invokes. */
   registerRestoreFilters: (restore: (filters: FiltersMap) => void) => void
+  /** Reset-every-filter callback invoked by Clear Selection / Select All
+   *  so those actions wipe the sliders too. */
+  registerResetFilters: (reset: () => void) => void
+  /** True when App is in "everything selected" mode via Select All. */
+  inSelectAllMode: boolean
+  /** Fired the first time a filter transitions to active while
+   *  inSelectAllMode is true. */
+  onFilterActivatedWhileAllSelected: () => void
   /** Persist the current (manualIds + filters) snapshot under a name. */
   onSaveSelection: (name: string) => SavedSelection | null
   /** Load a saved snapshot by id — App applies it to manualIds + filters. */
@@ -52,8 +67,10 @@ interface Props {
 }
 
 export default function Sidebar ({
-  locale, map, oidField, manualIds, onClearSelection, onSelectAll,
-  onFiltersChange, registerRestoreFilters, onSaveSelection, onLoadSelection
+  locale, map, oidField, manualIds, removedIds, onFilterMatchesChange,
+  onClearSelection, onSelectAll, onFiltersChange, registerRestoreFilters,
+  registerResetFilters, inSelectAllMode, onFilterActivatedWhileAllSelected,
+  onSaveSelection, onLoadSelection
 }: Props) {
   const [filters, setFilters] = useState<FiltersMap>(createInitialFilters)
   const [loading, setLoading] = useState(false)
@@ -76,6 +93,12 @@ export default function Sidebar ({
     registerRestoreFilters((f) => setFilters(f))
   }, [registerRestoreFilters])
 
+  // And a stable "reset every filter" callback for Clear Selection /
+  // Select All to invoke.
+  useEffect(() => {
+    registerResetFilters(() => setFilters(createInitialFilters()))
+  }, [registerResetFilters])
+
   // Recompute the filter SQL from `filters` and, if it actually changed,
   // query the server for the OID set that matches it. This is the only
   // place we still hit the server for selection state; the result is
@@ -85,11 +108,15 @@ export default function Sidebar ({
     const rawFilterSql = buildCombinedSql(filters)
     const clauses = [...parseFilterClauses(rawFilterSql, KNOWN_FILTER_FIELDS).values()]
     const filterSql = clauses.length > 0 ? clauses.join(' AND ') : '1=1'
+    // Only rerun when the SQL actually changes. The snapshot is bumped
+    // AFTER the async query completes, not before — bumping synchronously
+    // would re-fire this effect, its cleanup would flip `cancelled=true`,
+    // and the resolution would be silently discarded.
     if (filterSql === filterSqlSnapshot) return
-    setFilterSqlSnapshot(filterSql)
-    // No active clauses → no filter matches (union will just be manualIds).
     if (filterSql === '1=1') {
       filterMatchIdsRef.current = new Set()
+      onFilterMatchesChange(filterMatchIdsRef.current)
+      setFilterSqlSnapshot(filterSql)
       return
     }
     const base = findLayerByTitle(map.webmap, SELECTED_LAYER_TITLE)
@@ -97,35 +124,34 @@ export default function Sidebar ({
     let cancelled = false
     ;(async () => {
       try {
+        // queryObjectIds gets every matching OID in one call, bypassing
+        // the service's per-request maxRecordCount (default 2000).
         const q = base.createQuery()
         q.where = filterSql
-        q.outFields = [oidField]
-        q.returnGeometry = false
-        const res = await base.queryFeatures(q)
+        const raw = await (base as any).queryObjectIds(q)
+        const oidArr: number[] = Array.isArray(raw)
+          ? raw
+          : (raw?.objectIds as number[] | undefined) || []
         if (cancelled) return
-        const next = new Set<number>()
-        for (const f of res.features || []) {
-          const v = f.attributes?.[oidField]
-          if (typeof v === 'number') next.add(v)
-        }
-        filterMatchIdsRef.current = next
-        // Force the applier-effect below to rerun by bumping the snapshot.
-        setFilterSqlSnapshot(s => s + ' ')
+        filterMatchIdsRef.current = new Set<number>(oidArr)
+        onFilterMatchesChange(filterMatchIdsRef.current)
+        setFilterSqlSnapshot(filterSql)
       } catch (_) { /* leave stale cache; visualization won't update */ }
     })()
     return () => { cancelled = true }
   }, [filters, oidField, map.ready, map.webmap, filterSqlSnapshot])
 
-  // Union set = filter matches ∪ manually-clicked OIDs. Recomputed on
-  // every relevant change — cheap because both inputs are already in
-  // memory.
+  // Union set = (filter matches ∪ manually-clicked OIDs) \ removed OIDs.
+  // Removals win over both sources so a single click can de-select a
+  // street the filter is still matching.
   const unionOids = useMemo<number[]>(() => {
     const s = new Set<number>(filterMatchIdsRef.current)
     manualIds.forEach(o => s.add(o))
+    removedIds.forEach(o => s.delete(o))
     return [...s]
     // filterSqlSnapshot is included so this recomputes when the async
     // query above finishes and bumps the snapshot.
-  }, [manualIds, filterSqlSnapshot])
+  }, [manualIds, removedIds, filterSqlSnapshot])
 
   // Push the union OID list into the highlight + shade-index LayerViews
   // as a client-side filter. This is what makes rectangle-select feel
@@ -167,9 +193,13 @@ export default function Sidebar ({
         const def = FILTER_DEFINITIONS.find(d => d.field === field)
         return { ...prev, [field]: { active: false, value: def?.defaultValue ?? 0 } }
       }
+      // Filter going from inactive to active: if App is in Select All
+      // mode, tell it to drop the "everything" baseline so the filter
+      // narrows instead of unioning to a no-op.
+      if (inSelectAllMode) onFilterActivatedWhileAllSelected()
       return { ...prev, [field]: { ...prev[field], active: true } }
     })
-  }, [])
+  }, [inSelectAllMode, onFilterActivatedWhileAllSelected])
 
   const handleReset = useCallback(() => setFilters(createInitialFilters()), [])
 
@@ -194,7 +224,7 @@ export default function Sidebar ({
         selectAllEnabled={!!oidField}
         onSaveSelection={onSaveSelection}
         onLoadSelection={onLoadSelection}
-        saveSelectionEnabled={manualIds.size > 0}
+        saveSelectionEnabled={unionOids.length > 0}
       />
       <Calculator
         locale={locale}

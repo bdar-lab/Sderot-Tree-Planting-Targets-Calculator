@@ -69,7 +69,7 @@ export type StringKey =
   // App shell (header buttons, map tools) — merged from filter-layer-sync
   // and map-tools i18n files
   | 'instructions' | 'about'
-  | 'toggleBasemap' | 'toggleFullscreen'
+  | 'toggleBasemap' | 'toggleLabels' | 'toggleFullscreen'
 
 const en: Record<StringKey, string> = {
   low: 'Low', high: 'High', min: 'Min', max: 'Max',
@@ -210,6 +210,7 @@ const en: Record<StringKey, string> = {
   instructions: 'Instructions',
   about: 'About',
   toggleBasemap: 'Toggle basemap',
+  toggleLabels: 'Toggle place labels',
   toggleFullscreen: 'Toggle fullscreen'
 }
 
@@ -352,6 +353,7 @@ const he: Record<StringKey, string> = {
   instructions: 'הוראות',
   about: 'אודות',
   toggleBasemap: 'שינוי מפת רקע',
+  toggleLabels: 'הצג/הסתר שמות מקומות',
   toggleFullscreen: 'שינוי מצב מסך מלא'
 }
 

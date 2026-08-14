@@ -21,6 +21,9 @@ export interface SavedSelection {
   name: string
   createdAt: number
   manualIds: number[]
+  /** Optional so records written before this field existed still load
+   *  cleanly — App treats a missing value as an empty set. */
+  removedIds?: number[]
   filters: FiltersMap
 }
 
@@ -59,7 +62,8 @@ export function loadAll (): SavedSelection[] {
 export function save (
   name: string,
   manualIds: Set<number>,
-  filters: FiltersMap
+  filters: FiltersMap,
+  removedIds: Set<number> = new Set()
 ): SavedSelection {
   const store = readStore()
   // Ensure the display name is unique. Duplicate names would work
@@ -72,6 +76,7 @@ export function save (
     // disallows it doesn't apply here.
     createdAt: Date.now(),
     manualIds: [...manualIds],
+    removedIds: [...removedIds],
     // Structured-clone via JSON to detach from React state; also strips
     // any Immutable wrappers if the shape ever changes.
     filters: JSON.parse(JSON.stringify(filters)) as FiltersMap
@@ -139,11 +144,15 @@ export async function importFromFile (file: File): Promise<number> {
     // with the current UI.
     const filters = mergeFilters(r.filters as FiltersMap | undefined)
     const uniqueName = ensureUniqueName(r.name.trim() || 'Untitled', store.sets)
+    const removedIds = Array.isArray(r.removedIds)
+      ? (r.removedIds.filter((n: unknown) => typeof n === 'number') as number[])
+      : []
     store.sets.push({
       id: makeId(),
       name: uniqueName,
       createdAt: Date.now(),
       manualIds: r.manualIds.filter((n: unknown) => typeof n === 'number') as number[],
+      removedIds,
       filters
     })
     count++
