@@ -101,23 +101,29 @@ export default function Calculator ({
         setLoading(false); onLoadingChange(false)
         return
       }
-      const where = `${oidField} IN (${unionOids.join(',')})`
-      // Paginated fetch of all matching segments — geometry is needed for
-      // the tree spatial join below.
+      // Chunk the OID list so a large selection doesn't blow past the
+      // ~2 KB URL limit on feature-service GET queries. 500 OIDs per
+      // chunk stays well under; within each chunk we still paginate up
+      // to the service's maxRecordCount (2000).
+      const CHUNK = 500
       const features: any[] = []
-      let offset = 0
-      let done = false
-      while (!done) {
-        const q = selectedLayer.createQuery()
-        q.where = where
-        q.outFields = ['*']
-        q.returnGeometry = true
-        q.start = offset
-        q.num = 2000
-        const res = await selectedLayer.queryFeatures(q)
-        if (res?.features?.length) features.push(...res.features)
-        if (!res.features || res.features.length < 2000) done = true
-        else offset += 2000
+      for (let i = 0; i < unionOids.length; i += CHUNK) {
+        const idsChunk = unionOids.slice(i, i + CHUNK)
+        const where = `${oidField} IN (${idsChunk.join(',')})`
+        let offset = 0
+        let done = false
+        while (!done) {
+          const q = selectedLayer.createQuery()
+          q.where = where
+          q.outFields = ['*']
+          q.returnGeometry = true
+          q.start = offset
+          q.num = 2000
+          const res = await selectedLayer.queryFeatures(q)
+          if (res?.features?.length) features.push(...res.features)
+          if (!res.features || res.features.length < 2000) done = true
+          else offset += 2000
+        }
       }
       if (features.length === 0) {
         setSegmentCountText(t(locale, 'noRecordsFound'))
